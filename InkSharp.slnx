@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="InkSharp.csproj" />
+  <Folder Name="/samples/">
+    <Project Path="samples/InkSharp.Demo/InkSharp.Demo.csproj" />
+    <Project Path="samples/InkSharp.Reporte/InkSharp.Reporte.csproj" />
+  </Folder>
+</Solution>
