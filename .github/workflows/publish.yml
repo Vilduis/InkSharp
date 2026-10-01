@@ -1,0 +1,47 @@
+# Publica InkSharp en NuGet con Trusted Publishing (OIDC): no hay API key guardada en el repositorio.
+# Se ejecuta al subir un tag de versión, por ejemplo: git tag v1.0.0 && git push origin v1.0.0
+name: Publicar en NuGet
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # necesario para que NuGet/login obtenga el token OIDC
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # El tag debe coincidir con <Version> del .csproj (v1.0.0 → 1.0.0) para no publicar una versión equivocada.
+      - name: Verificar versión
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          CSPROJ=$(grep -oP '(?<=<Version>)[^<]+' InkSharp.csproj)
+          if [ "$TAG" != "$CSPROJ" ]; then
+            echo "El tag ($TAG) no coincide con la versión del .csproj ($CSPROJ)."
+            exit 1
+          fi
+
+      - name: Compilar ejemplos
+        run: dotnet build InkSharp.slnx -c Release
+
+      - name: Empaquetar
+        run: dotnet pack InkSharp.csproj -c Release -o nupkg -p:ContinuousIntegrationBuild=true
+
+      - name: Iniciar sesión en NuGet (Trusted Publishing)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }} # nombre de perfil en nuget.org, no el correo
+
+      - name: Publicar
+        run: dotnet nuget push nupkg/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
